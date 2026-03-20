@@ -768,6 +768,18 @@ The action field formalisation makes this concrete: an $n$-dimensional valence s
 
 This is fundamentally different from both classification (``this is a fire'') and regression (``the fire is at intensity 7.5''). It is \emph{geometric inference}: given where the vector is, where it is heading, and the shape of the action landscape, what response does the geometry demand?
 
+\subsection{The Naming Problem: Words Imposed on Wordless Representations}
+
+There is an unavoidable irony in this work. We argue that intelligence operates below language, then we name the axes ``speed,'' ``impact,'' ``tension.'' These names are our linguistic projection onto what the encoder is actually doing, and every name is a lossy compression.
+
+The encoder has no concept of speed in the physical sense of distance over time. It has no ruler, no clock, no scale. What it detects is the rate of spatial displacement of correlated feature clusters between frames. Pixels that were here are now there, and the difference between frames captures that displacement. We call this ``speed'' because it is the closest word available to us. A pre-linguistic organism does not call it anything. It reacts to the rate of change without naming it.
+
+This matters because the six axes we defined (speed, impact, precision, verticality, coordination, tension) are not ground truth. They are our best available approximation, imposed from outside, of what the encoder's 1024 dimensions naturally represent. The real structure of V-JEPA~2's representation space may contain axes that do not correspond to any single word, or axes that blend what we would separate linguistically. When we train a valence head to predict ``speed = 7,'' we are asking the encoder to collapse its rich internal representation onto a single human-legible number. Information is inevitably lost in that projection.
+
+A stronger version of this framework would let the axes emerge from the data rather than defining them in advance. Unsupervised clustering of the encoder's representation space, followed by post-hoc interpretation of what each cluster corresponds to, would reveal the encoder's own ontology rather than imposing ours. The named axes served their purpose for this initial work: they made the framework testable and the results interpretable. But the named axes are scaffolding. The building is the representation space itself.
+
+We are, in the end, forced to use words to describe a system that operates without them. This limitation belongs to us, not to the system.
+
 \subsection{Implications for Annotation}
 
 Traditional annotation asks: ``What is in this video?'' (a linguistic question). vScore annotation asks: ``How activated is each axis at this moment?'' (a numerical question).
