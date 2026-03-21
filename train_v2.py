@@ -235,6 +235,85 @@ def main():
         transfers = sum(1 for m in maes if m < 2.0)
         print(f"  {ax:>15s}  mean_MAE={mean_mae:.2f}  transfers_in={transfers}/{len(maes)}")
 
+    # ── CONTROL: Random baseline ──────────────────────────────
+    print(f"\n\n{'=' * 70}")
+    print("CONTROL: RANDOM BASELINE")
+    print("If universality is just parameter capacity, random scores")
+    print("should transfer too. They should not.")
+    print(f"{'=' * 70}")
+
+    n_random_runs = 5
+    random_transfer_maes = {ax: [] for ax in AXIS_NAMES}
+    random_overall_maes = []
+
+    for run in range(n_random_runs):
+        # Scramble: assign each category a random score vector
+        random_scores = {}
+        for cat in categories:
+            random_scores[cat] = [
+                random.uniform(0, 10) for _ in AXIS_NAMES
+            ]
+
+        # Build randomised dataset
+        rand_dataset = {
+            "features": dataset["features"].clone(),
+            "scores": torch.stack([
+                torch.tensor(random_scores[c], dtype=torch.float32)
+                for c in dataset["categories"]
+            ]),
+            "categories": dataset["categories"],
+            "video_ids": dataset["video_ids"],
+            "sources": dataset["sources"],
+        }
+
+        # Run transfer on all holdouts
+        run_maes = {ax: [] for ax in AXIS_NAMES}
+        run_overall = []
+        for cat in categories:
+            result, _, _ = train_valence_head(rand_dataset, holdout_category=cat)
+            if result:
+                run_overall.append(result["overall_mae"])
+                for i, ax in enumerate(AXIS_NAMES):
+                    run_maes[ax].append(result["per_axis_mae"][i].item())
+
+        for ax in AXIS_NAMES:
+            if run_maes[ax]:
+                random_transfer_maes[ax].append(
+                    sum(run_maes[ax]) / len(run_maes[ax])
+                )
+        if run_overall:
+            random_overall_maes.append(sum(run_overall) / len(run_overall))
+
+    # Compare
+    print(f"\n  {'axis':>15s}  {'real MAE':>8s}  {'random MAE':>10s}  {'ratio':>6s}  {'verdict':>10s}")
+    print(f"  {'─'*15}  {'─'*8}  {'─'*10}  {'─'*6}  {'─'*10}")
+
+    for i, ax in enumerate(AXIS_NAMES):
+        real_maes = [r["per_axis_mae"][i].item() for r in transfer_results.values()]
+        real_mean = sum(real_maes) / len(real_maes)
+
+        rand_mean = sum(random_transfer_maes[ax]) / len(random_transfer_maes[ax])
+        ratio = real_mean / rand_mean if rand_mean > 0 else 0
+
+        verdict = "SIGNAL" if ratio < 0.7 else "weak" if ratio < 0.9 else "noise"
+        print(f"  {ax:>15s}  {real_mean:8.2f}  {rand_mean:10.2f}  {ratio:6.2f}  {verdict:>10s}")
+
+    real_overall = sum(r["overall_mae"] for r in transfer_results.values()) / len(transfer_results)
+    rand_overall = sum(random_overall_maes) / len(random_overall_maes)
+
+    print(f"\n  {'OVERALL':>15s}  {real_overall:8.2f}  {rand_overall:10.2f}  "
+          f"{real_overall/rand_overall:6.2f}")
+    print(f"""
+  If real MAE << random MAE, the transfer is not an artefact
+  of parameter capacity. The model learned something real about
+  visual dynamics that random scores cannot capture.
+
+  Ratio < 0.7 = strong signal (real transfer is 30%+ better than chance)
+  Ratio 0.7-0.9 = weak signal
+  Ratio > 0.9 = indistinguishable from noise
+""")
+
 
 if __name__ == "__main__":
+    import random
     main()

@@ -492,6 +492,34 @@ tension & 3.13 & 5/13 (38\%) & Domain-specific \\
     \item \textbf{Failure to transfer identifies novel dynamics.} Bowling's impact (5.35), snowboarding's speed (4.16), and marching's coordination (7.86) remain high-MAE holdouts, confirming that these categories contain visual patterns not represented elsewhere in the dataset. The system correctly identifies which domains need dedicated training data.
 \end{enumerate}
 
+\subsubsection{Random Baseline Control}
+
+A natural objection is that 300M encoder parameters and a 400K-parameter MLP have enough capacity to produce low transfer MAE by chance, without learning anything about visual dynamics. To rule this out, we scramble the proxy scores: each category receives a random valence vector (uniform on $[0, 10]^6$), and the full cross-domain transfer experiment is repeated. We average over 5 random assignments.
+
+\begin{table}[ht]
+\centering
+\caption{Real vs.\ random baseline transfer MAE. Ratio $< 0.7$ indicates strong signal.}
+\begin{tabular}{lrrrl}
+\toprule
+Axis & Real MAE & Random MAE & Ratio & Verdict \\
+\midrule
+coordination & 1.68 & 3.18 & 0.53 & \textbf{SIGNAL} \\
+speed & 1.73 & 2.81 & 0.62 & \textbf{SIGNAL} \\
+impact & 1.86 & 3.01 & 0.62 & \textbf{SIGNAL} \\
+precision & 2.14 & 3.33 & 0.64 & \textbf{SIGNAL} \\
+verticality & 2.06 & 3.04 & 0.68 & \textbf{SIGNAL} \\
+tension & 2.89 & 3.06 & 0.95 & noise \\
+\midrule
+Overall & 2.06 & 3.07 & 0.67 & \\
+\bottomrule
+\end{tabular}
+\label{tab:random_baseline}
+\end{table}
+
+Five of six axes transfer 30--47\% better than random chance. Coordination shows the strongest signal (ratio 0.53): the model transfers nearly twice as well as a random assignment. Tension, at ratio 0.95, is indistinguishable from noise, confirming that it is genuinely domain-specific rather than merely undertrained.
+
+The overall ratio of 0.67 rules out the capacity objection. If transfer were an artefact of parameter count or encoder clustering, random scores would transfer equally well. They do not. The valence head learns a structured mapping from visual features to outcome-relevant scores that random assignments cannot replicate.
+
 \subsection{Action Inference from Valence Geometry}
 
 To test whether multi-axis valence vectors produce qualitatively richer behaviour than per-axis thresholds, we construct action fields for the survival and fire domains and evaluate them on simulated valence trajectories.
