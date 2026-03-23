@@ -6,9 +6,9 @@ No words anywhere in the pipeline.
 
 ## The idea
 
-Current visual AI maps pixels to words. Biology does the opposite: a gazelle flees before it knows the word "lion." A firefighter reads a blaze and acts before articulating why. The evaluation is pre-linguistic, operating on outcome-relevant axes (threat, speed, containment, momentum) through threshold dynamics, not categorization.
+Current visual AI maps pixels to words. Biology does the opposite: a gazelle flees before it knows the word "lion." A firefighter reads a blaze and acts before articulating why. The evaluation is pre-linguistic, operating on outcome-relevant axes (threat, speed, containment, momentum) through threshold dynamics, not categorisation.
 
-vScore formalizes this as:
+vScore formalises this as:
 
 ```
 pixels → encoder → valence scores → trajectory projection → threshold trigger → [language, optionally]
@@ -32,6 +32,19 @@ Built on [V-JEPA 2](https://arxiv.org/abs/2603.14482) (LeCun et al., Meta FAIR) 
 | tension | 3.13 | 5/13 (38%) | Domain-specific |
 
 Coordination, impact, and speed are universal visual primitives that transfer to unseen domains. Tension is genuinely domain-specific.
+
+**Random baseline control** (scrambled scores, averaged over 5 runs):
+
+| Axis | Real MAE | Random MAE | Ratio | Verdict |
+|------|----------|------------|-------|---------|
+| coordination | 1.68 | 3.18 | 0.53 | **SIGNAL** |
+| speed | 1.73 | 2.81 | 0.62 | **SIGNAL** |
+| impact | 1.86 | 3.01 | 0.62 | **SIGNAL** |
+| precision | 2.14 | 3.33 | 0.64 | **SIGNAL** |
+| verticality | 2.06 | 3.04 | 0.68 | **SIGNAL** |
+| tension | 2.89 | 3.06 | 0.95 | noise |
+
+Five of six axes transfer 30-47% better than random chance (overall ratio 0.67). This rules out the objection that transfer is an artefact of parameter capacity.
 
 ## Quick start
 
