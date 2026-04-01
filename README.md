@@ -4,6 +4,10 @@ A framework for visual intelligence that operates below language. Videos are map
 
 No words anywhere in the pipeline.
 
+![vScore Results](paper/vscore_results.png)
+
+*Left: Tennis shot valence profiles. Each shot is a direction in valence space, not a label. Right: Cross-domain transfer vs. random baseline. Five of six axes transfer 30-47% better than chance.*
+
 ## The idea
 
 Current visual AI maps pixels to words. Biology does the opposite: a gazelle flees before it knows the word "lion." A firefighter reads a blaze and acts before articulating why. The evaluation is pre-linguistic, operating on outcome-relevant axes (threat, speed, containment, momentum) through threshold dynamics, not categorisation.
