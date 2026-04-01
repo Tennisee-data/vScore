@@ -959,6 +959,16 @@ Current thresholds are fixed. Biological thresholds adapt: a soldier in combat h
 
 Can a system trained on Fire and Weather generalise to ``wildfire during a storm''? Compositional domain scoring, where multi-domain valence vectors interact, would test whether the framework supports the combinatorial richness of real-world scenarios.
 
+\subsection{Coherence Scoring: When Disorder Is the Signal}
+
+The current framework assumes that every action has a coherent valence profile: a direction in valence space that characterises it. But every domain contains actions defined by their \emph{incoherence}. In tennis, a frame shot (``bois'') occurs when a player is overwhelmed by speed and produces an unplanned, improvised response. In hockey, a scramble in front of the net involves bodies and sticks moving without structured intent. In firefighting, a collapse event produces chaotic motion with no coherent trajectory.
+
+These actions are rare but real. They are not noise; they are a legitimate category whose signature is \emph{dispersion} rather than direction. A forehand flat has low feature variance across examples because every player executes roughly the same motion. A frame shot has high feature variance because each one is different in a different way.
+
+The current random baseline cannot distinguish between ``no signal'' (the axis genuinely carries no information) and ``the signal is disorder'' (the action is genuinely unstructured). Both produce transfer MAE near the random level, but for opposite reasons. A second test is needed: compare the encoder feature variance of the candidate category against structured categories. High transfer MAE combined with high feature variance indicates genuinely unstructured motion, not a failure of the scoring framework.
+
+This suggests an additional output alongside the valence vector: a \emph{coherence score} measuring how tightly the current observation clusters with known patterns. A coherent shot has low feature variance and a clear valence direction. A scramble has high variance and no consistent direction. The coherence score would function as a meta-axis: not ``what kind of action is this'' but ``how much does this resemble a structured action at all.'' This applies across all sports and all domains where improvised, desperate, or chaotic responses occur alongside trained, structured ones.
+
 \subsection{Expert Calibration Studies}
 
 The strongest validation would be: have domain experts (firefighters, coaches, traders) score videos on their domain axes, train valence heads on their scores, and test whether the resulting model predicts expert attention and decision-making. If vScore heads correlate with expert gaze patterns and response times, the framework captures something real about expert visual intelligence.
