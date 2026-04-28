@@ -245,6 +245,16 @@ class BayesianPosterior:
     def confidence(self) -> float:
         return self.posterior_prec.log().mean().exp().item()
 
+    def expected_surprise(self) -> float:
+        """
+        Baseline surprise expected from a typical observation, used by
+        the storage gate. For the Gaussian/KL formulation, the surprise
+        units are KL of mean-shift between successive posteriors — these
+        approach 0 as the posterior stabilizes, so the natural baseline
+        is 0. Override in subclasses with a different surprise definition.
+        """
+        return 0.0
+
     @staticmethod
     def _kl(mu1, prec1, mu2, prec2) -> float:
         var1 = 1.0 / (prec1 + 1e-8)
@@ -286,20 +296,31 @@ class BayesianMemory:
         feature_dim: int = 1024,
         n_coverage_regions: int = 16,
         replay_interval: int = 10,    # Replay every N insertions
+        posterior_kind: str = "gaussian",   # "gaussian" or "normal_gamma"
     ):
+        if posterior_kind not in ("gaussian", "normal_gamma"):
+            raise ValueError(f"posterior_kind must be 'gaussian' or 'normal_gamma', got {posterior_kind!r}")
         self.capacity = capacity
         self.feature_dim = feature_dim
         self.n_coverage_regions = n_coverage_regions
         self.replay_interval = replay_interval
+        self.posterior_kind = posterior_kind
 
         self.experiences: list[Experience] = []
-        self.posteriors: dict[str, BayesianPosterior] = {}
+        self.posteriors: dict = {}        # values: BayesianPosterior or NormalGammaPosterior
         self._next_id = 0
         self._insertions_since_replay = 0
+        self.last_gate_attribution: Optional[str] = None     # "influence" | "surprise" | "outcome" | "intensity" | "rejected"
 
-    def get_or_create_posterior(self, domain: str, n_axes: int) -> BayesianPosterior:
+    def get_or_create_posterior(self, domain: str, n_axes: int):
         if domain not in self.posteriors:
-            self.posteriors[domain] = BayesianPosterior(n_axes)
+            if self.posterior_kind == "normal_gamma":
+                # Local import keeps the torch.distributions cost out of the
+                # default-Gaussian path.
+                from .memory_bayesian_ng import NormalGammaPosterior
+                self.posteriors[domain] = NormalGammaPosterior(n_axes)
+            else:
+                self.posteriors[domain] = BayesianPosterior(n_axes)
         return self.posteriors[domain]
 
     def _assign_region(self, feature_vector: torch.Tensor) -> int:
@@ -349,8 +370,15 @@ class BayesianMemory:
         intensity = valence_vector.norm().item()
         region = self._assign_region(feature_vector)
 
+        # Entropy-relative gating: subtract the baseline (= predictive entropy
+        # for NG, 0 for KL-Gaussian). Gate thresholds then represent
+        # information beyond typical, with consistent semantics across kinds.
+        baseline = posterior.expected_surprise()
+        excess_surprise = max(0.0, surprise - baseline)
+        excess_influence = max(0.0, influence - baseline) if influence != float('inf') else float('inf')
+
         # Gate: should we store?
-        if not self._should_store(surprise, intensity, outcome, influence):
+        if not self._should_store(excess_surprise, intensity, outcome, excess_influence):
             return None
 
         exp = Experience(
@@ -391,20 +419,29 @@ class BayesianMemory:
         outcome: float,
         influence: float,
     ) -> bool:
-        """Store if statistically informative, not just intense."""
+        """Store if statistically informative, not just intense.
+
+        Records `last_gate_attribution` indicating which OR-condition
+        (or "rejected") drove the decision, for diagnostics.
+        """
         fill = len(self.experiences) / max(1, self.capacity)
         selectivity = 1.0 + fill * 3.0
 
         # Influence is the primary criterion — does the posterior need this?
         if influence > 0.1 / selectivity:
+            self.last_gate_attribution = "influence"
             return True
         if surprise > 0.3 / selectivity:
+            self.last_gate_attribution = "surprise"
             return True
         if abs(outcome) > 0.7 / selectivity:
+            self.last_gate_attribution = "outcome"
             return True
         if intensity > 6.0 / selectivity:
+            self.last_gate_attribution = "intensity"
             return True
 
+        self.last_gate_attribution = "rejected"
         return False
 
     def _evict_rigorous(self, incoming_region: int):

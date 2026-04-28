@@ -88,6 +88,18 @@ python -m vScore.demo_dual_system
 
 vScore gates the LLM. Clear threats are handled in milliseconds without words. Ambiguous situations escalate to linguistic reasoning. "I flinched before I knew why" = vScore fired before the LLM started.
 
+### Compare the two Bayesian posteriors
+
+```bash
+# Unit-precision Gaussian vs Normal-Gamma on synthetic streams (univariate + multivariate)
+python -m vScore.demo_bayesian_compare
+
+# End-to-end memory comparison on the firefighter scenario
+python -m vScore.demo_memory_bayesian_compare
+```
+
+The first script verifies the Normal-Gamma math numerically (LOO via sufficient-stat subtraction matches refit, MC sampling matches Student-t predictive) and shows where it improves on the unit-precision Gaussian. The second runs the same firefighter scenario through both kinds and shows the retention difference (5/5 vs 1/5 EVACUATE-class events).
+
 ### Train on real video (requires V-JEPA 2 download, ~30 min on CPU)
 
 ```bash
@@ -107,7 +119,8 @@ vScore/
 │   ├── valence.py           # ValenceVector, ValenceTrajectory
 │   ├── threshold.py         # Dynamic threshold triggering
 │   ├── action_space.py      # Geometric action inference
-│   ├── memory_bayesian.py   # Posterior-aware experience memory
+│   ├── memory_bayesian.py   # Posterior-aware experience memory (Gaussian + Normal-Gamma)
+│   ├── memory_bayesian_ng.py # Normal-Gamma posterior (Bishop PRML §2.3.6) + verification suite
 │   ├── multimodal.py        # Cross-modal fusion in valence space
 │   ├── dual_system.py       # vScore + LLM integration
 │   └── prosody.py           # Voice intonation scoring
@@ -155,7 +168,7 @@ The encoder, valence head, action inference, trajectory projection, threshold tr
 
 **Trajectory, not snapshot.** The system projects where each axis is heading and acts on the projection. A fire at intensity=5 that is accelerating triggers earlier than a fire at intensity=7 that is stable.
 
-**Bayesian memory.** Experiences are stored, recalled, and selectively forgotten based on their statistical contribution to the posterior. Surprising events are kept. Routine ones are discarded. The prior sharpens over time. Replay recomputes all retention scores against the current posterior to eliminate sequential bias.
+**Bayesian memory.** Experiences are stored, recalled, and selectively forgotten based on their statistical contribution to the posterior. Surprising events are kept. Routine ones are discarded. The prior sharpens over time. Replay recomputes all retention scores against the current posterior to eliminate sequential bias. Two posterior kinds are available: a unit-precision diagonal Gaussian (default, fastest) and a Normal-Gamma (Bishop PRML §2.3.6) that learns per-axis variance from data. On the firefighter scenario the Normal-Gamma retains 5/5 EVACUATE-class events versus 1/5 under the unit-precision Gaussian, because it correctly calibrates surprise to per-axis scale instead of treating all axes as unit-variance.
 
 **Modality-agnostic.** The valence vector is the universal interface. Vision, audio, and any future modality produce vectors in the same space. Fusion happens in valence space, not feature space. Modality conflict (audio says danger, vision says safe) is itself a diagnostic signal.
 

@@ -455,6 +455,29 @@ $$\lambda_{\text{new}} = \lambda_{\text{old}} + \lambda_{\text{obs}}, \quad \mu_
 
 Surprise is the KL divergence between old and new posterior, quantifying the amount of learning this observation caused.
 
+#### 4.6.1.1 Beyond Unit Precision: Normal-Gamma Extension
+
+The Gaussian formulation above hardcodes the observation precision to a single value, so the posterior precision grows linearly with $n$ regardless of how scattered the observations actually are. The second-moment information ($\sum x_i^2$) is never used. This is fine when valence axes are pre-normalized to unit variance, but production valence vectors carry per-axis scales that differ by orders of magnitude, and the unit-precision model has no mechanism to discover them.
+
+We provide a Normal-Gamma alternative (Bishop, 2006, §2.3.6) that closes this gap. Each axis carries four hyperparameters $(\mu_n, \beta_n, a_n, b_n)$ representing the joint posterior over $(\mu, \tau)$ — mean and precision both treated as random variables:
+
+$$\beta_n = \beta_0 + n, \quad \mu_n = \frac{\beta_0 \mu_0 + \sum x_i}{\beta_n}$$
+$$a_n = a_0 + \tfrac{n}{2}, \quad b_n = b_0 + \tfrac{1}{2}\sum (x_i - \bar{x})^2 + \frac{\beta_0 n (\bar{x} - \mu_0)^2}{2\beta_n}$$
+
+The posterior predictive becomes a per-axis Student-$t$ with $2 a_n$ degrees of freedom, location $\mu_n$, and scale $\sqrt{b_n(\beta_n + 1)/(a_n \beta_n)}$. Surprise and leave-one-out influence become unified Bayesian quantities — the predictive log-density evaluated at the new observation:
+
+$$\text{surprise}(x) = -\log p(x \mid D), \qquad I_i = -\log p(x_i \mid D \setminus \{x_i\})$$
+
+The computation remains $O(\text{n\_axes})$ via closed-form sufficient-statistic subtraction. We verified the closed form numerically against (a) a hand-computed posterior, (b) hierarchical Monte Carlo sampling from the predictive (Kolmogorov-Smirnov $D = 0.0005$ over $10^6$ samples), and (c) leave-one-out by full posterior refit.
+
+**Effect on per-axis variance recovery.** On a four-axis valence stream with true per-axis $\sigma = (0.1, 1.0, 2.0, 5.0)$ over 300 observations, the original Gaussian posterior reports predicted variance $\approx 0.0033$ on every axis (this is just $1/(0.01 + 300)$ — independent of the data), while the Normal-Gamma recovers $(0.017, 0.969, 4.881, 25.99)$ — true scales to three decimals.
+
+**Effect on calibration.** A "typical" probe — one $\sigma$ on each axis, calibrated to the per-axis scale — receives total surprise $\approx 1074$ nats from the Gaussian (which has no per-axis scale concept) and $\approx 5.94$ nats from the Normal-Gamma. The latter equals the differential entropy of the predictive: a typical observation's surprise is the entropy. This is the calibrated baseline that allows entropy-relative gating: the storage gate compares $\text{surprise} - H[\text{predictive}]$ to a threshold, so a "more surprising than typical" decision has consistent semantics across axis scales.
+
+**Effect on memory composition.** Re-running the firefighter scenario (77 observations, capacity 20, identical RNG, identical thresholds) with the Normal-Gamma posterior keeps **all 5 of 5 EVACUATE-class events** (3 crises + 2 backdrafts) versus **1 of 5** under the original Gaussian. The mean is learned at the same conjugate rate in both, but the Normal-Gamma additionally learns per-axis variance, so high-intensity events on the noisy 'intens' axis ($\sigma \approx 2.0$) are correctly tagged as several-$\sigma$ events with high LOO influence and survive eviction. The unit-precision Gaussian has no scale concept and ranks routine variation alongside genuine crises.
+
+The Normal-Gamma posterior is available as `BayesianMemory(posterior_kind="normal_gamma")`. The Gaussian remains the default for backward compatibility.
+
 #### 4.6.2 The Eviction Problem: Sequential Bias
 
 Naive eviction (remove lowest-scoring experience) introduces three compounding biases:
@@ -683,6 +706,8 @@ Assran, M., et al. (2023). Self-Supervised Learning from Images with a Joint-Emb
 Bardes, A., et al. (2024). V-JEPA: Latent Video Prediction for Visual Representation Learning. *arXiv preprint*.
 
 Bardes, A., et al. (2025). V-JEPA 2: Unlocking Dense Features in Video Self-Supervised Learning. *arXiv:2603.14482*.
+
+Bishop, C. M. (2006). *Pattern Recognition and Machine Learning*. Springer. §2.3.6, conjugate Normal-Gamma prior for univariate Gaussian with unknown mean and precision.
 
 Damasio, A. (1994). *Descartes' Error: Emotion, Reason, and the Human Brain*. Putnam.
 
